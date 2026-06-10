@@ -1,0 +1,861 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  StyleSheet, Text, View, FlatList, TouchableOpacity,
+  SafeAreaView, StatusBar, TextInput, Modal, SectionList,
+  Image, ScrollView, Platform, Animated, Easing
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const TEMPO_DESCANSO = 60;
+const FRASES_MOTIVACIONAIS = [
+  "A constância supera a intensidade. Mantenha o foco!",
+  "O único treino ruim é aquele que não aconteceu.",
+  "Sua saúde é o seu maior investimento.",
+  "O seu corpo alcança o que a sua mente acredita.",
+  "Não pare quando estiver cansado, pare quando terminar.",
+  "A disciplina é a ponte entre seus objetivos e suas conquistas.",
+  "Cada repetição é um passo em direção à sua melhor versão.",
+  "A dor de hoje é a força de amanhã.",
+  "Você não precisa ser excelente para começar, mas precisa começar para ser excelente.",
+  "O progresso, por menor que seja, ainda é progresso.",
+  "Supere seus limites, um movimento de cada vez.",
+  "Seu único competidor é quem você foi ontem.",
+  "A força física é importante, mas a mental vence a batalha."
+];
+
+const NIVEL_CONFIG = {
+  'Iniciante':    { color: '#00B37E', bg: 'rgba(0,179,126,0.12)' },
+  'Intermediário':{ color: '#F5A623', bg: 'rgba(245,166,35,0.12)' },
+  'Avançado':     { color: '#E83F5B', bg: 'rgba(232,63,91,0.12)' },
+};
+
+const EXERCICIOS_CALISTENIA = [
+  {
+    title: 'Peito',
+    data: [
+      { id: 'p1',  nome: 'Flexão na parede',          nivel: 'Iniciante',     imagem: 'https://media1.tenor.com/m/pD7P6JKPL2wAAAAC/workout-calisthenics.gif' },
+      { id: 'p2',  nome: 'Flexão inclinada',           nivel: 'Iniciante',     imagem: 'https://media1.tenor.com/m/e45GckrMBLEAAAAC/flex%C3%A3o-inclinada-no-banco.gif' },
+      { id: 'p3',  nome: 'Flexão com joelhos',         nivel: 'Iniciante',     imagem: 'https://media1.tenor.com/m/-mNQ3_-leDcAAAAC/push-up-exercise.gif' },
+      { id: 'p4',  nome: 'Flexão tradicional',         nivel: 'Intermediário', imagem: 'https://media1.tenor.com/m/gI-8qCUEko8AAAAC/pushup.gif' },
+      { id: 'p5',  nome: 'Flexão declinada',           nivel: 'Intermediário', imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2019/12/decline-pushup.gif' },
+      { id: 'p6',  nome: 'Flexão diamante',            nivel: 'Intermediário', imagem: 'https://www.mundoboaforma.com.br/wp-content/uploads/2021/03/flexao-de-bracos-diamante.gif' },
+      { id: 'p7',  nome: 'Flexão aberta',              nivel: 'Intermediário', imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2023/11/wide-hand-push-up.gif' },
+      { id: 'p8',  nome: 'Mergulho reto (Dips)',       nivel: 'Intermediário', imagem: 'https://www.mundoboaforma.com.br/wp-content/uploads/2021/03/triceps-mergulho-apoiado-em-dois-bancos.gif' },
+      { id: 'p9',  nome: 'Flexão explosiva',           nivel: 'Avançado',      imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2019/12/clap-push-up.gif' },
+      { id: 'p10', nome: 'Flexão arqueiro',            nivel: 'Avançado',      imagem: 'https://fitcron.com/wp-content/uploads/2021/03/32941301-Archer-Push-up_Chest_720.gif' },
+      { id: 'p11', nome: 'Flexão máquina de escrever', nivel: 'Avançado',      imagem: 'https://media.giphy.com/media/ZY2JYmx6cGmIZq81Mt/giphy.gif' },
+      { id: 'p12', nome: 'Flexão de um braço',         nivel: 'Avançado',      imagem: 'https://media.tenor.com/RPlAGEwiEAcAAAAM/onearmpushups-noequipmentexercisesmen.gif' },
+      { id: 'p13', nome: 'Flexão pseudo-planche',      nivel: 'Avançado',      imagem: 'https://api.smartworkout.app/asset/image/9595cdb2-325b-43ee-8b37-70075602793e' },
+    ]
+  },
+  {
+    title: 'Costas e Bíceps',
+    data: [
+      { id: 'cb4',  nome: 'Descida controlada (Negativa)', nivel: 'Iniciante',     imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2023/08/barra-fixa-negativa.gif' },
+      { id: 'cb5',  nome: 'Barra fixa pronada (Pull-up)',  nivel: 'Intermediário', imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2021/12/5ff47a22d8ccca7d561c7819__3_pyB7h39VAoP-8O5DMLJEpZTi38eP7giMQcyuGgS7dGiHHjYzxkuyLaWlqA7EvXpr2SYhLHvwEvU7gxTu0PFXNwUCkavifsXJlTNn5wL-Au8c97cQgTMyz9B56VQ0UJvA5z0Uz.gif' },
+      { id: 'cb6',  nome: 'Barra fixa supinada (Chin-up)', nivel: 'Intermediário', imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2019/04/chinup.gif' },
+      { id: 'cb7',  nome: 'Barra fixa pegada neutra',      nivel: 'Intermediário', imagem: 'https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExYXRxOThzZXUyOHMybmllazhjNnNsbW1tcXNnejY5a2Foc3FheDloaCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/NR0Na7tS4jEhboq29H/200.webp' },
+      { id: 'cb8',  nome: 'Barra fixa com pegada mista',   nivel: 'Intermediário', imagem: 'https://gymvisual.com/img/p/5/3/6/3/5363.gif' },
+      { id: 'cb9',  nome: 'L-Sit Pull-up',                 nivel: 'Intermediário', imagem: 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDR0dWI4YTk4aG83OTdnZGM3bW85cDcwbmExcmVnY3B4YWtyaDhrcCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/0jX7EGwOtNBVvpuFtp/giphy.webp' },
+      { id: 'cb11', nome: 'Barra fixa arqueiro',            nivel: 'Avançado',      imagem: 'https://gymvisual.com/img/p/1/3/1/4/2/13142.gif' },
+      { id: 'cb12', nome: 'Barra fixa de um braço',         nivel: 'Avançado',      imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2024/05/one-arm-chinup.gif' },
+      { id: 'cb13', nome: 'Front Lever',                    nivel: 'Avançado',      imagem: 'https://api.smartworkout.app/asset/image/ef5aaa47-2aa1-45aa-a8e3-7fac9c108271' },
+      { id: 'cb14', nome: 'Muscle-up',                      nivel: 'Avançado',      imagem: 'https://media.tenor.com/dgCyChkdEY4AAAAM/muscle-up.gif' },
+    ]
+  },
+  {
+    title: 'Ombros e Tríceps',
+    data: [
+      { id: 'ot1',  nome: 'Mergulho no banco',             nivel: 'Iniciante',     imagem: 'https://api.smartworkout.app/asset/image/29690a76-2d41-4565-af21-d9f5e53162eb' },
+      { id: 'ot2',  nome: 'Pike Push-up',                  nivel: 'Iniciante',     imagem: 'https://gymvisual.com/img/p/1/2/6/4/2/12642.gif' },
+      { id: 'ot3',  nome: 'Prancha com toque nos ombros',  nivel: 'Iniciante',     imagem: 'https://i.pinimg.com/originals/83/d4/c1/83d4c199265ebdb71c58996f7084900d.gif' },
+      { id: 'ot5',  nome: 'Pike Push-up (pés elevados)',   nivel: 'Intermediário', imagem: 'https://gymvisual.com/img/p/1/5/0/2/1/15021.gif' },
+      { id: 'ot6',  nome: 'Extensão de tríceps corporal',  nivel: 'Intermediário', imagem: 'https://i.pinimg.com/originals/07/79/02/0779027b1e9e996e03ed5b728e329adc.gif' },
+      { id: 'ot7',  nome: 'Parada de mão na parede',       nivel: 'Intermediário', imagem: 'https://liftmanual.com/wp-content/uploads/2023/04/handstand-hold-on-wall.gif' },
+      { id: 'ot9',  nome: 'Flexão parada de mão (Parede)',nivel: 'Avançado',      imagem: 'https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyczBra2pvdXR4dHJ3bzN4a3VuM2Z1YXJkNDcxYTJwMjhvNm9ibHhneCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xThta8ZR0THqoBOOTC/200w.gif' },
+      { id: 'ot10', nome: 'Flexão parada de mão (Livre)', nivel: 'Avançado',      imagem: 'https://fitnessprogramer.com/wp-content/uploads/2021/06/handstand-push-up.gif' },
+      { id: 'ot11', nome: '90 Degree Push-up',             nivel: 'Avançado',      imagem: 'https://mxp-media.ilnmedia.com/media/content/2015/May/1_1432554947.gif' },
+      { id: 'ot12', nome: 'Impossible Dip',                nivel: 'Avançado',      imagem: 'https://gymvisual.com/img/p/1/3/1/3/8/13138.gif' },
+    ]
+  },
+  {
+    title: 'Pernas',
+    data: [
+      { id: 'pe1',  nome: 'Agachamento livre',             nivel: 'Iniciante',     imagem: 'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExbjZ4eXR2cHpxeGFtNWF5a2MydTd2ZjA2cDkwcWVzZmk4cXgzYmN5MyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1C1ipHPEs4Vjwglwza/giphy.webp' },
+      { id: 'pe2',  nome: 'Afundo',                        nivel: 'Iniciante',     imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2024/09/Static-Lunge.gif' },
+      { id: 'pe3',  nome: 'Ponte de glúteos',              nivel: 'Iniciante',     imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2023/12/glute-bridge.gif' },
+      { id: 'pe4',  nome: 'Panturrilha',                   nivel: 'Iniciante',     imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2023/03/elevacao-de-panturrilhas-com-o-peso-do-corpo.gif' },
+      { id: 'pe5',  nome: 'Wall Sit',                      nivel: 'Iniciante',     imagem: 'https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyNmprajU3d2tjeXQyNXkwMHFiN2JwcGs5eGZla3kxYWVvZzhnc2NneSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fVq9MXzZEBYEo1c9ad/200.gif' },
+      { id: 'pe6',  nome: 'Agachamento búlgaro',           nivel: 'Intermediário', imagem: 'https://image.tuasaude.com/media/article/dv/bw/agachamento-bulgaro_62764.gif?width=686&height=487' },
+      { id: 'pe7',  nome: 'Agachamento com salto',         nivel: 'Intermediário', imagem: 'https://www.mundoboaforma.com.br/wp-content/uploads/2021/11/agachamento-com-salto-tradicional.gif' },
+      { id: 'pe8',  nome: 'Passada (Walking Lunges)',      nivel: 'Intermediário', imagem: 'https://media.post.rvohealth.io/wp-content/uploads/2023/08/PeskyRepentantDwarfmongoose-size_restricted.gif' },
+      { id: 'pe9',  nome: 'Pistol Squat assistido',        nivel: 'Intermediário', imagem: 'https://i.pinimg.com/originals/0e/28/5a/0e285a77dd05c78347d534eb089a6bc0.gif' },
+      { id: 'pe10', nome: 'Sissy Squat',                   nivel: 'Intermediário', imagem: 'https://i.makeagif.com/media/8-23-2024/sly3NZ.gif' },
+      { id: 'pe11', nome: 'Pistol Squat livre',            nivel: 'Avançado',      imagem: 'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pistol-Squat.gif' },
+      { id: 'pe12', nome: 'Shrimp Squat',                  nivel: 'Avançado',      imagem: 'https://gymvisual.com/img/p/1/5/0/0/4/15004.gif' },
+      { id: 'pe13', nome: 'Dragon Pistol Squat',           nivel: 'Avançado',      imagem: 'https://i.makeagif.com/media/12-03-2024/IeseJV.gif' },
+      { id: 'pe14', nome: 'Nordic Hamstring Curl',         nivel: 'Avançado',      imagem: 'https://i.makeagif.com/media/9-29-2023/UlFx6Y.gif' },
+      { id: 'pe15', nome: 'Agachamento 1 perna com salto', nivel: 'Avançado',      imagem: 'https://i.pinimg.com/originals/fd/2f/67/fd2f67b0611efa3df640ad756d7ca445.gif' },
+    ]
+  },
+  {
+    title: 'Core e Lombar',
+    data: [
+      { id: 'cl1',  nome: 'Prancha frontal',             nivel: 'Iniciante',     imagem: 'https://s2-ge.glbimg.com/x3VH1LmLRWGmhnAQAtwRI3p4VoE=/0x0:724x483/984x0/smart/filters:strip_icc()/i.s3.glbimg.com/v1/AUTH_bc8228b6673f488aa253bbcb03c80ec5/internal_photos/bs/2018/B/x/lAitWISUudJmnVqf48rA/istock-578290582.jpg' },
+      { id: 'cl2',  nome: 'Prancha lateral',             nivel: 'Iniciante',     imagem: 'https://totalpass.com/wp-content/uploads/2025/07/prancha.jpg' },
+      { id: 'cl3',  nome: 'Abdominal supra',             nivel: 'Iniciante',     imagem: 'https://www.mundoboaforma.com.br/wp-content/uploads/2023/02/47271301-abdominal-supra.gif' },
+      { id: 'cl4',  nome: 'Elevação de pernas deitado',  nivel: 'Iniciante',     imagem: 'https://www.hipertrofia.org/blog/wp-content/uploads/2024/09/lying-leg-raise-flat-bench.gif' },
+      { id: 'cl5',  nome: 'Superman',                    nivel: 'Iniciante',     imagem: 'https://hips.hearstapps.com/hmg-prod/images/766/fitgif-friday-superman-slider-thumbnail-override-0-1492696801.gif' },
+      { id: 'cl6',  nome: 'Hanging Knee Raise',          nivel: 'Intermediário', imagem: 'https://i.pinimg.com/originals/21/86/e7/2186e7a33fda75a9ff3f1f2a8eef435a.gif' },
+      { id: 'cl9',  nome: 'Abdominal remador',           nivel: 'Intermediário', imagem: 'https://i.makeagif.com/media/1-25-2024/Kr9xBQ.gif' },
+      { id: 'cl10', nome: 'Limpador de para-brisa',      nivel: 'Intermediário', imagem: 'https://i.makeagif.com/media/4-14-2015/QGyx25.gif' },
+      { id: 'cl11', nome: 'Toes to Bar',                 nivel: 'Avançado',      imagem: 'https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUyaGdnOW5zdmZ2eDEwOHJ4Z3V5bW1vZnIweDhpZTM3czNzNzc5NTlmMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/AHC7fdsrGVZLU8RN5p/200.gif' },
+      { id: 'cl12', nome: 'L-Sit',                       nivel: 'Avançado',      imagem: 'https://experiencelife.lifetime.life/wp-content/uploads/2025/07/so25-bid-l-sit.jpg' },
+      { id: 'cl13', nome: 'V-Sit',                       nivel: 'Avançado',      imagem: 'https://i.pinimg.com/originals/47/f7/d1/47f7d13ff4d729848e1868e6362240ae.gif' },
+      { id: 'cl14', nome: 'Dragon Flag',                 nivel: 'Avançado',      imagem: 'https://gymvisual.com/img/p/2/0/2/9/8/20298.gif' },
+      { id: 'cl15', nome: 'Human Flag',                  nivel: 'Avançado',      imagem: 'https://fitnessprogramer.com/wp-content/uploads/2022/02/Human-Flag.gif' },
+    ]
+  }
+];
+
+
+
+const NivelBadge = ({ nivel }) => {
+  const cfg = NIVEL_CONFIG[nivel] || NIVEL_CONFIG['Iniciante'];
+  return (
+    <View style={[styles.nivelBadge, { backgroundColor: cfg.bg }]}>
+      <Text style={[styles.nivelBadgeText, { color: cfg.color }]}>{nivel}</Text>
+    </View>
+  );
+};
+
+const ProgressBar = ({ valor, total }) => {
+  const pct = total === 0 ? 0 : Math.round((valor / total) * 100);
+  return (
+    <View style={styles.progressBarOuter}>
+      <View style={[styles.progressBarInner, { width: `${pct}%` }]} />
+    </View>
+  );
+};
+
+
+const SplashScreen = ({ onEntrar }) => {
+  const logoOpacity   = useRef(new Animated.Value(0)).current;
+  const logoScale     = useRef(new Animated.Value(0.7)).current;
+  const taglineOpacity= useRef(new Animated.Value(0)).current;
+  const btnOpacity    = useRef(new Animated.Value(0)).current;
+  const btnTranslateY = useRef(new Animated.Value(30)).current;
+  const ringScale     = useRef(new Animated.Value(0.6)).current;
+  const ringOpacity   = useRef(new Animated.Value(0)).current;
+  const dot1          = useRef(new Animated.Value(0)).current;
+  const dot2          = useRef(new Animated.Value(0)).current;
+  const dot3          = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    
+    Animated.sequence([
+    
+      Animated.parallel([
+        Animated.timing(ringScale, { toValue: 1, duration: 700, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
+        Animated.timing(ringOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ]),
+    
+      Animated.parallel([
+        Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(logoScale,   { toValue: 1, duration: 500, easing: Easing.out(Easing.back(1.8)), useNativeDriver: true }),
+      ]),
+    
+      Animated.timing(taglineOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      
+      Animated.stagger(150, [
+        Animated.timing(dot1, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(dot2, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(dot3, { toValue: 1, duration: 350, useNativeDriver: true }),
+      ]),
+      
+      Animated.parallel([
+        Animated.timing(btnOpacity,    { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(btnTranslateY, { toValue: 0, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
+  const features = [
+    { icon: 'barbell-outline',   text: 'Mais de 60 exercícios',    anim: dot1 },
+    { icon: 'timer-outline',     text: 'Timer de descanso',        anim: dot2 },
+    { icon: 'trending-up-outline', text: 'Acompanhe seu progresso', anim: dot3 },
+  ];
+
+  return (
+    <SafeAreaView style={styles.splashContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#0e0e10" />
+
+      {}
+      <Animated.View style={[
+        styles.splashRingOuter,
+        { transform: [{ scale: ringScale }], opacity: ringOpacity }
+      ]} />
+      <Animated.View style={[
+        styles.splashRingInner,
+        { transform: [{ scale: ringScale }], opacity: ringOpacity }
+      ]} />
+
+      {}
+      <Animated.View style={[
+        styles.splashLogoArea,
+        { opacity: logoOpacity, transform: [{ scale: logoScale }] }
+      ]}>
+        <View style={styles.splashIconWrapper}>
+          <Ionicons name="body-outline" size={52} color="#00B37E" />
+        </View>
+        <View style={styles.splashNameRow}>
+          <Text style={styles.splashNameCali}>Cali</Text>
+          <Text style={styles.splashNameApp}>App</Text>
+        </View>
+      </Animated.View>
+
+      {}
+      <Animated.Text style={[styles.splashTagline, { opacity: taglineOpacity }]}>
+        Calistenia do seu jeito
+      </Animated.Text>
+
+      
+      <Animated.View style={[styles.splashDivider, { opacity: taglineOpacity }]} />
+
+      
+      <View style={styles.splashFeatures}>
+        {features.map((f, i) => (
+          <Animated.View key={i} style={[styles.splashFeatureRow, { opacity: f.anim, transform: [{ translateX: f.anim.interpolate({ inputRange: [0,1], outputRange: [-20, 0] }) }] }]}>
+            <View style={styles.splashFeatureIcon}>
+              <Ionicons name={f.icon} size={18} color="#00B37E" />
+            </View>
+            <Text style={styles.splashFeatureText}>{f.text}</Text>
+          </Animated.View>
+        ))}
+      </View>
+
+     
+      <Animated.View style={[
+        styles.splashBtnWrapper,
+        { opacity: btnOpacity, transform: [{ translateY: btnTranslateY }] }
+      ]}>
+        <TouchableOpacity style={styles.splashBtn} onPress={onEntrar} activeOpacity={0.85}>
+          <Text style={styles.splashBtnTexto}>Começar agora</Text>
+          <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
+        <Text style={styles.splashVersion}>v1.0 · Feito com 💪</Text>
+      </Animated.View>
+    </SafeAreaView>
+  );
+};
+
+
+export default function App() {
+  const [tela, setTela] = useState('splash'); 
+  const [telaAtiva, setTelaAtiva] = useState('dashboard');
+  const [exercicios, setExercicios] = useState([]);
+  const [diasSemana, setDiasSemana] = useState([]);
+  const [nome, setNome] = useState('João Silva');
+  const [peso, setPeso] = useState('82');
+  const [metaTreinos, setMetaTreinos] = useState('14');
+  const [isEditing, setIsEditing] = useState(false);
+  const [segundos, setSegundos] = useState(0);
+  const [timerAtivo, setTimerAtivo] = useState(false);
+  const [mostrarModalSucesso, setMostrarModalSucesso] = useState(false);
+  const [modalNovoExercicio, setModalNovoExercicio] = useState(false);
+  const [exercicioSelecionado, setExercicioSelecionado] = useState(null);
+  const [novasSeries, setNovasSeries] = useState('3');
+  const [novasReps, setNovasReps] = useState('10');
+  const [fraseDoDia, setFraseDoDia] = useState('');
+  const [contadorExercicios, setContadorExercicios] = useState({});
+
+  const appOpacity = useRef(new Animated.Value(0)).current;
+
+  const entrarNoApp = () => {
+    Animated.timing(appOpacity, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    setTela('app');
+  };
+
+  useEffect(() => {
+    if (telaAtiva === 'dashboard') {
+      setFraseDoDia(FRASES_MOTIVACIONAIS[Math.floor(Math.random() * FRASES_MOTIVACIONAIS.length)]);
+    }
+  }, [telaAtiva]);
+
+  useEffect(() => {
+    const carregarDados = async () => {
+      try {
+        const salvos = await AsyncStorage.getItem('@gym_data_v5');
+        if (salvos) {
+          const d = JSON.parse(salvos);
+          setExercicios(d.exercicios || []);
+          setDiasSemana(d.diasSemana || []);
+          setNome(d.nome);
+          setPeso(d.peso);
+          setMetaTreinos(d.metaTreinos);
+          setContadorExercicios(d.contadorExercicios || {});
+        } else {
+          setDiasSemana([
+            { id: 'seg', nome: 'S', completo: true,  volume: 5 },
+            { id: 'ter', nome: 'T', completo: true,  volume: 3 },
+            { id: 'qua', nome: 'Q', completo: false, volume: 0 },
+            { id: 'qui', nome: 'Q', completo: false, volume: 0 },
+            { id: 'sex', nome: 'S', completo: false, volume: 0 },
+            { id: 'sab', nome: 'S', completo: false, volume: 0 },
+            { id: 'dom', nome: 'D', completo: false, volume: 0 },
+          ]);
+        }
+      } catch (e) {}
+    };
+    carregarDados();
+  }, []);
+
+  useEffect(() => {
+    const salvar = async () => {
+      await AsyncStorage.setItem('@gym_data_v5', JSON.stringify({ exercicios, diasSemana, nome, peso, metaTreinos, contadorExercicios }));
+    };
+    salvar();
+  }, [exercicios, diasSemana, nome, peso, metaTreinos, contadorExercicios]);
+
+  useEffect(() => {
+    let intervalo;
+    if (timerAtivo && segundos > 0) {
+      intervalo = setInterval(() => setSegundos(s => s - 1), 1000);
+    } else {
+      setTimerAtivo(false);
+      clearInterval(intervalo);
+    }
+    return () => clearInterval(intervalo);
+  }, [timerAtivo, segundos]);
+
+  const alternarConclusao = (id) => {
+    const atualizada = exercicios.map(ex => {
+      if (ex.id === id) {
+        if (!ex.concluido) { setSegundos(TEMPO_DESCANSO); setTimerAtivo(true); }
+        return { ...ex, concluido: !ex.concluido };
+      }
+      return ex;
+    });
+    setExercicios(atualizada);
+    if (atualizada.length > 0 && atualizada.every(ex => ex.concluido)) {
+      setMostrarModalSucesso(true);
+      setDiasSemana(ds => ds.map(d => d.id === 'dom' ? { ...d, completo: true, volume: atualizada.length } : d));
+    }
+  };
+
+  const confirmarAdicao = () => {
+    if (!exercicioSelecionado) return;
+    setExercicios([...exercicios, {
+      id: Date.now().toString(),
+      nome: exercicioSelecionado.nome,
+      series: novasSeries || 3,
+      repeticoes: novasReps || 10,
+      concluido: false,
+      icone: exercicioSelecionado.icone,
+      imagem: exercicioSelecionado.imagem,
+      nivel: exercicioSelecionado.nivel,
+    }]);
+    setContadorExercicios(prev => ({
+      ...prev,
+      [exercicioSelecionado.nome]: {
+        count: (prev[exercicioSelecionado.nome]?.count || 0) + 1,
+        imagem: exercicioSelecionado.imagem,
+        nivel: exercicioSelecionado.nivel,
+      }
+    }));
+    setModalNovoExercicio(false);
+    setExercicioSelecionado(null);
+  };
+
+  if (tela === 'splash') {
+    return <SplashScreen onEntrar={entrarNoApp} />;
+  }
+
+  const renderDashboard = () => {
+    const diasCompletos = diasSemana.filter(d => d.completo).length;
+    return (
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.dashHeader}>
+          <View>
+            <Text style={styles.dashGreetingSmall}>Bem-vindo de volta 👋</Text>
+            <Text style={styles.dashGreetingBig}>{nome.split(' ')[0]}</Text>
+          </View>
+          <View style={styles.dashAvatarSmall}>
+            <Ionicons name="person" size={22} color="#00B37E" />
+          </View>
+        </View>
+        <Text style={styles.dashDate}>
+          {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full' }).format(new Date())}
+        </Text>
+        <View style={styles.cardDestaque}>
+          <View style={styles.cardDestaqueHeader}>
+            <Text style={styles.cardDestaqueLabel}>PROGRESSO SEMANAL</Text>
+            <Text style={styles.cardDestaqueValor}>{diasCompletos}/7 dias</Text>
+          </View>
+          <ProgressBar valor={diasCompletos} total={7} />
+          <View style={styles.chartContainer}>
+            {diasSemana.map(dia => (
+              <View key={dia.id} style={styles.chartBarContainer}>
+                <View style={[styles.chartBar, {
+                  height: Math.max((dia.volume || 0) * 15 + 5, 5),
+                  backgroundColor: dia.completo ? '#00B37E' : '#29292E',
+                  shadowColor: dia.completo ? '#00B37E' : 'transparent',
+                  shadowOpacity: dia.completo ? 0.6 : 0,
+                  shadowRadius: 6,
+                  elevation: dia.completo ? 4 : 0,
+                }]} />
+                <Text style={[styles.chartLabel, dia.completo && { color: '#00B37E' }]}>{dia.nome}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={styles.statsRowDash}>
+          <View style={[styles.statCardDash, { borderColor: '#00B37E' }]}>
+            <Text style={styles.statCardIcon}>🔥</Text>
+            <Text style={styles.statCardValue}>{diasCompletos}</Text>
+            <Text style={styles.statCardLabel}>Dias ativos</Text>
+          </View>
+          <View style={[styles.statCardDash, { borderColor: '#F5A623' }]}>
+            <Text style={styles.statCardIcon}>💪</Text>
+            <Text style={styles.statCardValue}>{exercicios.length}</Text>
+            <Text style={styles.statCardLabel}>Exercícios</Text>
+          </View>
+          <View style={[styles.statCardDash, { borderColor: '#E83F5B' }]}>
+            <Text style={styles.statCardIcon}>✅</Text>
+            <Text style={styles.statCardValue}>{exercicios.filter(e => e.concluido).length}</Text>
+            <Text style={styles.statCardLabel}>Concluídos</Text>
+          </View>
+        </View>
+        <View style={styles.cardFrase}>
+          <Text style={styles.cardFraseIcone}>"</Text>
+          <Text style={styles.cardFraseTexto}>{fraseDoDia}</Text>
+        </View>
+        <TouchableOpacity style={styles.btnPrimario} onPress={() => setTelaAtiva('treinos')}>
+          <Ionicons name="barbell-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+          <Text style={styles.btnPrimarioTexto}>Iniciar Treino</Text>
+        </TouchableOpacity>
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    );
+  };
+
+  const renderTreinos = () => {
+    const concluidos = exercicios.filter(ex => ex.concluido).length;
+    const total = exercicios.length;
+    return (
+      <View style={styles.content}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Treino de Hoje</Text>
+            <Text style={styles.subtitle}>{concluidos}/{total} concluídos</Text>
+            <ProgressBar valor={concluidos} total={total} />
+          </View>
+          <TouchableOpacity onPress={() => setModalNovoExercicio(true)} style={styles.btnAdd}>
+            <Ionicons name="add" size={28} color="#00B37E" />
+          </TouchableOpacity>
+        </View>
+        {timerAtivo && (
+          <View style={styles.timerCard}>
+            <Ionicons name="timer-outline" size={20} color="#FFF" />
+            <Text style={styles.timerText}>  DESCANSO  </Text>
+            <Text style={styles.timerCount}>{segundos}s</Text>
+          </View>
+        )}
+        {exercicios.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="barbell-outline" size={56} color="#29292E" />
+            <Text style={styles.emptyStateText}>Nenhum exercício ainda</Text>
+            <Text style={styles.emptyStateSubtext}>Toque em + para adicionar</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={exercicios}
+            keyExtractor={i => i.id}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.cardExercicio, item.concluido && styles.cardConcluido]}
+                onPress={() => alternarConclusao(item.id)}
+                activeOpacity={0.85}
+              >
+                <Image source={{ uri: item.imagem }} style={[styles.imgExercicioSalvo, item.concluido && { opacity: 0.35 }]} />
+                <View style={styles.cardExercicioContent}>
+                  <Text style={[styles.nomeExercicio, item.concluido && styles.textoConcluido]} numberOfLines={1}>{item.nome}</Text>
+                  <View style={styles.cardExercicioMeta}>
+                    <Text style={styles.detalhesExercicio}>{item.series}×{item.repeticoes}</Text>
+                    {item.nivel && <NivelBadge nivel={item.nivel} />}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setExercicios(exercicios.filter(e => e.id !== item.id))} style={styles.btnLixo}>
+                  <Ionicons name="trash-outline" size={18} color="#E83F5B" />
+                </TouchableOpacity>
+                <View style={[styles.checkCircle, item.concluido && styles.checkCircleAtivo]}>
+                  <Ionicons name={item.concluido ? 'checkmark' : 'ellipse-outline'} size={item.concluido ? 18 : 24} color={item.concluido ? '#FFF' : '#8D8D99'} />
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </View>
+    );
+  };
+
+  const renderPerfil = () => {
+    const favorito = Object.entries(contadorExercicios).sort((a, b) => b[1].count - a[1].count)[0];
+    return (
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.perfilHeaderArea}>
+          <View style={styles.avatarRing}>
+            <View style={styles.avatarInner}>
+              <Ionicons name="person" size={44} color="#00B37E" />
+            </View>
+          </View>
+          {isEditing
+            ? <TextInput style={styles.inputNome} value={nome} onChangeText={setNome} />
+            : <Text style={styles.profileName}>{nome}</Text>
+          }
+          <Text style={styles.perfilSubtitle}>Atleta de Calistenia</Text>
+        </View>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>PESO ATUAL</Text>
+            {isEditing
+              ? <TextInput style={styles.inputStat} value={peso} onChangeText={setPeso} keyboardType="numeric" />
+              : <Text style={styles.statValue}>{peso}<Text style={styles.statUnit}>kg</Text></Text>
+            }
+          </View>
+          <View style={[styles.statBox, { borderColor: '#00B37E' }]}>
+            <Text style={styles.statLabel}>META A PERDER</Text>
+            {isEditing
+              ? <TextInput style={styles.inputStat} value={metaTreinos} onChangeText={setMetaTreinos} keyboardType="numeric" />
+              : <Text style={[styles.statValue, { color: '#00B37E' }]}>{metaTreinos}<Text style={[styles.statUnit, { color: '#00B37E' }]}>kg</Text></Text>
+            }
+          </View>
+        </View>
+        <View style={styles.cardFavorito}>
+          <View style={styles.cardFavoritoHeaderRow}>
+            <Text style={styles.cardFavoritoLabel}>⭐  EXERCÍCIO FAVORITO</Text>
+          </View>
+          {favorito ? (
+            <View style={styles.cardFavoritoRow}>
+              <Image source={{ uri: favorito[1].imagem }} style={styles.imgFavorito} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.nomeFavorito} numberOfLines={2}>{favorito[0]}</Text>
+                <NivelBadge nivel={favorito[1].nivel || 'Iniciante'} />
+                <Text style={styles.contagemFavorito}>🏆 Adicionado {favorito[1].count}× ao treino</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.semFavoritoTexto}>Adicione exercícios ao treino para descobrir seu favorito!</Text>
+          )}
+        </View>
+        <TouchableOpacity style={styles.buttonEdit} onPress={() => setIsEditing(!isEditing)}>
+          <Ionicons name={isEditing ? 'checkmark-done-outline' : 'create-outline'} size={18} color="#FFF" style={{ marginRight: 8 }} />
+          <Text style={styles.buttonTextSmall}>{isEditing ? 'Salvar perfil' : 'Editar perfil'}</Text>
+        </TouchableOpacity>
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    );
+  };
+
+  return (
+    <Animated.View style={[{ flex: 1 }, { opacity: appOpacity }]}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0e0e10" />
+        {telaAtiva === 'dashboard' && renderDashboard()}
+        {telaAtiva === 'treinos'   && renderTreinos()}
+        {telaAtiva === 'perfil'    && renderPerfil()}
+
+        <Modal visible={modalNovoExercicio} transparent animationType="fade">
+          <View style={styles.modalFundo}>
+            <View style={[styles.modalConteudo, { maxHeight: '87%', width: '95%' }]}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitulo}>Escolha o Exercício</Text>
+              {!exercicioSelecionado ? (
+                <SectionList
+                  sections={EXERCICIOS_CALISTENIA}
+                  keyExtractor={i => i.id}
+                  style={{ width: '100%', paddingHorizontal: 14 }}
+                  showsVerticalScrollIndicator={false}
+                  renderSectionHeader={({ section: { title } }) => (
+                    <View style={styles.secaoHeader}><Text style={styles.secaoTitulo}>{title}</Text></View>
+                  )}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.cardItemSelecao} onPress={() => setExercicioSelecionado(item)} activeOpacity={0.8}>
+                      <Image source={{ uri: item.imagem }} style={styles.imagemMiniatura} />
+                      <View style={{ flex: 1, overflow: 'hidden' }}>
+                        <Text style={styles.textoItemSelecao} numberOfLines={2}>{item.nome}</Text>
+                        <NivelBadge nivel={item.nivel} />
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#8D8D99" />
+                    </TouchableOpacity>
+                  )}
+                />
+              ) : (
+                <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 }}>
+                  <Image source={{ uri: exercicioSelecionado.imagem }} style={styles.imagemDestaque} />
+                  <Text style={styles.textoExercicioConfirmar}>{exercicioSelecionado.nome}</Text>
+                  <NivelBadge nivel={exercicioSelecionado.nivel} />
+                  <View style={styles.inputsRow}>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.labelInputModal}>Séries</Text>
+                      <TextInput style={styles.inputModal} value={novasSeries} onChangeText={setNovasSeries} keyboardType="numeric" />
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.labelInputModal}>Repetições</Text>
+                      <TextInput style={styles.inputModal} value={novasReps} onChangeText={setNovasReps} keyboardType="numeric" />
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.btnPrimario} onPress={confirmarAdicao}>
+                    <Ionicons name="add-circle-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.btnPrimarioTexto}>Adicionar ao treino</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setExercicioSelecionado(null)} style={styles.btnVoltar}>
+                    <Ionicons name="arrow-back-outline" size={16} color="#00B37E" style={{ marginRight: 6 }} />
+                    <Text style={styles.btnVoltarTexto}>Voltar à lista</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              )}
+              <TouchableOpacity onPress={() => { setModalNovoExercicio(false); setExercicioSelecionado(null); }} style={styles.btnFechar}>
+                <Text style={styles.btnFecharTexto}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        
+        <Modal visible={mostrarModalSucesso} transparent animationType="slide">
+          <View style={styles.modalFundo}>
+            <View style={[styles.modalConteudo, { padding: 32, alignItems: 'center' }]}>
+              <Text style={{ fontSize: 56 }}>🎉</Text>
+              <Text style={styles.modalTitulo}>Treino Concluído!</Text>
+              <Text style={{ color: '#8D8D99', textAlign: 'center', marginBottom: 24 }}>Parabéns! Mais um dia de evolução.</Text>
+              <TouchableOpacity style={styles.btnPrimario} onPress={() => setMostrarModalSucesso(false)}>
+                <Text style={styles.btnPrimarioTexto}>Uhull! 🚀</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+       
+        <View style={styles.tabBar}>
+          {[
+            { id: 'dashboard', icon: 'home',    label: 'Início'  },
+            { id: 'treinos',   icon: 'barbell', label: 'Treinos' },
+            { id: 'perfil',    icon: 'person',  label: 'Perfil'  },
+          ].map(tab => {
+            const ativo = telaAtiva === tab.id;
+            return (
+              <TouchableOpacity key={tab.id} style={styles.tabItem} onPress={() => setTelaAtiva(tab.id)}>
+                {ativo && <View style={styles.tabIndicator} />}
+                <Ionicons name={ativo ? tab.icon : `${tab.icon}-outline`} size={24} color={ativo ? '#00B37E' : '#8D8D99'} />
+                <Text style={[styles.tabText, ativo && styles.tabTextActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </SafeAreaView>
+    </Animated.View>
+  );
+}
+
+
+const styles = StyleSheet.create({
+
+ 
+  splashContainer: {
+    flex: 1, backgroundColor: '#0e0e10',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  splashRingOuter: {
+    position: 'absolute',
+    width: 340, height: 340, borderRadius: 170,
+    borderWidth: 1, borderColor: 'rgba(0,179,126,0.12)',
+  },
+  splashRingInner: {
+    position: 'absolute',
+    width: 220, height: 220, borderRadius: 110,
+    borderWidth: 1.5, borderColor: 'rgba(0,179,126,0.2)',
+  },
+  splashLogoArea: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  splashIconWrapper: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: 'rgba(0,179,126,0.1)',
+    borderWidth: 2, borderColor: 'rgba(0,179,126,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#00B37E', shadowOpacity: 0.4, shadowRadius: 20, elevation: 8,
+  },
+  splashNameRow: {
+    flexDirection: 'row', alignItems: 'baseline',
+  },
+  splashNameCali: {
+    color: '#FFFFFF', fontSize: 48, fontWeight: '900', letterSpacing: -1,
+  },
+  splashNameApp: {
+    color: '#00B37E', fontSize: 48, fontWeight: '900', letterSpacing: -1,
+  },
+  splashTagline: {
+    color: '#8D8D99', fontSize: 15, letterSpacing: 0.5, marginBottom: 28,
+  },
+  splashDivider: {
+    width: 48, height: 2, backgroundColor: '#00B37E',
+    borderRadius: 2, marginBottom: 28, opacity: 0.6,
+  },
+  splashFeatures: {
+    width: '75%', gap: 14, marginBottom: 48,
+  },
+  splashFeatureRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+  },
+  splashFeatureIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(0,179,126,0.1)',
+    borderWidth: 1, borderColor: 'rgba(0,179,126,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  splashFeatureText: {
+    color: '#a1a1aa', fontSize: 14, fontWeight: '500',
+  },
+  splashBtnWrapper: {
+    width: '80%', alignItems: 'center',
+  },
+  splashBtn: {
+    width: '100%', backgroundColor: '#00B37E',
+    paddingVertical: 16, borderRadius: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#00B37E', shadowOpacity: 0.45, shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 }, elevation: 10,
+  },
+  splashBtnTexto: {
+    color: '#FFF', fontSize: 17, fontWeight: '800', letterSpacing: 0.3,
+  },
+  splashVersion: {
+    color: '#3f3f46', fontSize: 12, marginTop: 16,
+  },
+
+ 
+  container: { flex: 1, backgroundColor: '#0e0e10' },
+  content:   { flex: 1, paddingHorizontal: 20 },
+
+  dashHeader:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 28, marginBottom: 4 },
+  dashGreetingSmall:  { color: '#8D8D99', fontSize: 13, letterSpacing: 0.5 },
+  dashGreetingBig:    { color: '#FFF', fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
+  dashAvatarSmall:    { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,179,126,0.12)', borderWidth: 1.5, borderColor: '#00B37E', alignItems: 'center', justifyContent: 'center' },
+  dashDate:           { color: '#8D8D99', fontSize: 13, marginBottom: 16, marginTop: 2 },
+
+  cardDestaque:       { backgroundColor: '#18181b', padding: 18, borderRadius: 16, borderWidth: 1, borderColor: '#27272a', marginBottom: 14 },
+  cardDestaqueHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  cardDestaqueLabel:  { color: '#8D8D99', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  cardDestaqueValor:  { color: '#00B37E', fontSize: 13, fontWeight: '700' },
+
+  progressBarOuter:   { height: 5, backgroundColor: '#27272a', borderRadius: 4, overflow: 'hidden', marginBottom: 16 },
+  progressBarInner:   { height: 5, backgroundColor: '#00B37E', borderRadius: 4 },
+
+  chartContainer:     { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 80 },
+  chartBarContainer:  { alignItems: 'center', gap: 6 },
+  chartBar:           { width: 12, borderRadius: 6 },
+  chartLabel:         { color: '#52525b', fontSize: 10, fontWeight: '600' },
+
+  statsRowDash:       { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  statCardDash:       { flex: 1, backgroundColor: '#18181b', borderRadius: 14, borderWidth: 1, borderColor: '#27272a', padding: 14, alignItems: 'center' },
+  statCardIcon:       { fontSize: 20, marginBottom: 4 },
+  statCardValue:      { color: '#FFF', fontSize: 20, fontWeight: '800' },
+  statCardLabel:      { color: '#8D8D99', fontSize: 11, marginTop: 2, textAlign: 'center' },
+
+  cardFrase:          { backgroundColor: '#18181b', borderRadius: 14, borderWidth: 1, borderColor: '#27272a', borderLeftWidth: 3, borderLeftColor: '#00B37E', padding: 16, marginBottom: 16 },
+  cardFraseIcone:     { color: '#00B37E', fontSize: 28, fontWeight: '900', lineHeight: 28, marginBottom: 2 },
+  cardFraseTexto:     { color: '#a1a1aa', fontStyle: 'italic', fontSize: 14, lineHeight: 20 },
+
+  btnPrimario:        { backgroundColor: '#00B37E', paddingVertical: 15, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', width: '100%', shadowColor: '#00B37E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
+  btnPrimarioTexto:   { color: '#FFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+
+  greeting:    { color: '#FFF', fontSize: 24, fontWeight: '800' },
+  subtitle:    { color: '#8D8D99', fontSize: 13, marginTop: 2, marginBottom: 8 },
+  headerRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 28, marginBottom: 16 },
+  btnAdd:      { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(0,179,126,0.12)', borderWidth: 1.5, borderColor: '#00B37E', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+
+  timerCard:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#00B37E', padding: 14, borderRadius: 12, marginBottom: 14, shadowColor: '#00B37E', shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 },
+  timerText:   { color: '#FFF', fontWeight: '700', fontSize: 14, letterSpacing: 1 },
+  timerCount:  { color: '#FFF', fontWeight: '900', fontSize: 22 },
+
+  emptyState:        { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  emptyStateText:    { color: '#52525b', fontSize: 17, fontWeight: '600', marginTop: 14 },
+  emptyStateSubtext: { color: '#3f3f46', fontSize: 14, marginTop: 4 },
+
+  cardExercicio:        { backgroundColor: '#18181b', padding: 12, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#27272a' },
+  cardConcluido:        { borderColor: '#00B37E', backgroundColor: '#111a16' },
+  cardExercicioContent: { flex: 1, marginHorizontal: 10 },
+  cardExercicioMeta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  nomeExercicio:        { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  textoConcluido:       { textDecorationLine: 'line-through', color: '#52525b' },
+  detalhesExercicio:    { color: '#8D8D99', fontSize: 13, fontWeight: '600' },
+  imgExercicioSalvo:    { width: 52, height: 52, borderRadius: 10 },
+  btnLixo:              { padding: 6, marginRight: 4 },
+  checkCircle:          { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: '#3f3f46', alignItems: 'center', justifyContent: 'center' },
+  checkCircleAtivo:     { backgroundColor: '#00B37E', borderColor: '#00B37E' },
+
+  perfilHeaderArea: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
+  avatarRing:       { width: 90, height: 90, borderRadius: 45, borderWidth: 2.5, borderColor: '#00B37E', padding: 4, marginBottom: 14, shadowColor: '#00B37E', shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
+  avatarInner:      { flex: 1, borderRadius: 40, backgroundColor: 'rgba(0,179,126,0.1)', alignItems: 'center', justifyContent: 'center' },
+  profileName:      { color: '#FFF', fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  perfilSubtitle:   { color: '#00B37E', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginTop: 4, textTransform: 'uppercase' },
+  inputNome:        { backgroundColor: '#18181b', color: '#FFF', fontSize: 20, padding: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#00B37E', textAlign: 'center', width: '80%' },
+
+  statsRow:   { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statBox:    { flex: 1, backgroundColor: '#18181b', padding: 16, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#27272a' },
+  statValue:  { color: '#FFF', fontSize: 24, fontWeight: '800', marginTop: 4 },
+  statUnit:   { fontSize: 14, fontWeight: '600', color: '#8D8D99' },
+  inputStat:  { backgroundColor: '#0e0e10', color: '#FFF', fontSize: 18, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1.5, borderColor: '#00B37E', textAlign: 'center', width: '80%', marginTop: 6 },
+  statLabel:  { color: '#8D8D99', fontSize: 10, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 },
+
+  cardFavorito:          { backgroundColor: '#18181b', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#27272a', marginBottom: 16 },
+  cardFavoritoHeaderRow: { marginBottom: 12 },
+  cardFavoritoLabel:     { color: '#8D8D99', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  cardFavoritoRow:       { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  imgFavorito:           { width: 64, height: 64, borderRadius: 12 },
+  nomeFavorito:          { color: '#FFF', fontSize: 15, fontWeight: '700', flexShrink: 1, marginBottom: 6 },
+  contagemFavorito:      { color: '#8D8D99', fontSize: 12, marginTop: 6 },
+  semFavoritoTexto:      { color: '#52525b', fontSize: 14, fontStyle: 'italic' },
+
+  buttonEdit:      { backgroundColor: '#00B37E', padding: 15, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', shadowColor: '#00B37E', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  buttonTextSmall: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+
+  nivelBadge:     { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  nivelBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+
+  modalFundo:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+  modalConteudo: { backgroundColor: '#18181b', paddingTop: 12, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#27272a' },
+  modalHandle:   { width: 36, height: 4, backgroundColor: '#3f3f46', borderRadius: 2, marginBottom: 16 },
+  modalTitulo:   { color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 16, paddingHorizontal: 20 },
+
+  secaoHeader:  { paddingVertical: 6 },
+  secaoTitulo:  { color: '#FFF', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+
+  cardItemSelecao:  { flexDirection: 'row', backgroundColor: '#0e0e10', padding: 10, borderRadius: 12, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#27272a', overflow: 'hidden' },
+  imagemMiniatura:  { width: 52, height: 52, borderRadius: 10, marginRight: 12 },
+  textoItemSelecao: { color: '#FFF', fontSize: 14, fontWeight: '700', flexShrink: 1, marginBottom: 5 },
+
+  imagemDestaque:          { width: 130, height: 130, borderRadius: 16, marginBottom: 12, borderWidth: 2, borderColor: '#27272a' },
+  textoExercicioConfirmar: { color: '#FFF', fontSize: 18, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
+
+  inputsRow:       { flexDirection: 'row', gap: 12, marginVertical: 16, width: '100%' },
+  inputGroup:      { flex: 1 },
+  labelInputModal: { color: '#8D8D99', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 },
+  inputModal:      { backgroundColor: '#0e0e10', color: '#FFF', padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: '#27272a', fontSize: 16, fontWeight: '700', textAlign: 'center' },
+
+  btnVoltar:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0e0e10', borderWidth: 1, borderColor: '#27272a', borderRadius: 12, paddingVertical: 13, width: '100%', marginTop: 10 },
+  btnVoltarTexto: { color: '#00B37E', fontWeight: '700', fontSize: 14 },
+  btnFechar:      { paddingVertical: 14, paddingHorizontal: 24 },
+  btnFecharTexto: { color: '#E83F5B', fontWeight: '700', fontSize: 14 },
+
+  tabBar:       { flexDirection: 'row', backgroundColor: '#18181b', borderTopWidth: 1, borderTopColor: '#27272a', height: 74, paddingBottom: Platform.OS === 'ios' ? 8 : 10 },
+  tabItem:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  tabIndicator: { position: 'absolute', top: 0, width: 28, height: 2.5, backgroundColor: '#00B37E', borderRadius: 2 },
+  tabText:      { color: '#52525b', fontSize: 11, fontWeight: '600', marginTop: 4 },
+  tabTextActive:{ color: '#00B37E', fontWeight: '700' },
+});
